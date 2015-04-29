@@ -1,0 +1,8 @@
+INCLUDE_DIRECTORIES(${ROSS_SOURCE_DIR} ${ROSS_BINARY_DIR})
+
+SET(hns_srcs
+hns.c	hns.h)
+
+ADD_EXECUTABLE(hns ${hns_srcs})
+
+TARGET_LINK_LIBRARIES(hns ROSS m)
