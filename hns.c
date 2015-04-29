@@ -696,7 +696,7 @@ void mpi_msg_send(mpi_process * p, tw_bf * bf,nodes_message * msg, tw_lp * lp)
             
             /*Select random unique sender and receiver once map complete*/
             if(g_procIds_count == TOTAL_NODES){
-                if(g_UNIQUE_SENDER ==0){
+                if(g_UNIQUE_SENDER ==-1){
                     g_UNIQUE_SENDER = rand() % TOTAL_NODES;
                     g_UNIQUE_RECEIVER = g_UNIQUE_SENDER;
                     while(g_UNIQUE_SENDER == g_UNIQUE_RECEIVER){
@@ -706,30 +706,28 @@ void mpi_msg_send(mpi_process * p, tw_bf * bf,nodes_message * msg, tw_lp * lp)
                 }
             }
             
+           bf->c3 = 1;
+           //if(procId == g_UNIQUE_SENDER){
+            //   final_dst = g_UNIQUE_RECEIVER;
+           //}else{
+               final_dst = tw_rand_integer( lp->rng, N_nodes, 2 * N_nodes - 1);
+           //}
             
-            //if(getProcID(lp -> gid) == g_UNIQUE_SENDER){
-                bf->c3 = 1;
-                
-                final_dst = tw_rand_integer( lp->rng, N_nodes, 2 * N_nodes - 1);
-                //final_dst = g_UNIQUE_RECEIVER;
-                
-                /* if the random final destination generated is the same as current LP ID then it is possible
-                 that the next randomly generated destination is also the same.
-                 Therefore if randomly generated destination is the same as source, we use the following
-                 calculation to make sure that the source and destinations are different */
-                if( final_dst == lp->gid )
-                {
-                    final_dst = N_nodes + (lp->gid + N_nodes/2) % N_nodes;
-                }
-            //}
+            /* if the random final destination generated is the same as current LP ID then it is possible
+             that the next randomly generated destination is also the same.
+             Therefore if randomly generated destination is the same as source, we use the following
+             calculation to make sure that the source and destinations are different */
+            if( final_dst == lp->gid){
+                final_dst = N_nodes + (lp->gid + N_nodes/2) % N_nodes;
+            }
         }
         break;
             
     }
     
-    //if(TRAFFIC == POLAR && getProcID(lp-> gid) != g_UNIQUE_SENDER) {
-     //   return;
-    //}
+    if(TRAFFIC == POLAR && g_UNIQUE_SENDER != -1 && getProcID(lp-> gid) != g_UNIQUE_SENDER) {
+        return;
+    }
     
     tw_stime base_time = MEAN_PROCESS;
 	
@@ -756,7 +754,8 @@ void mpi_msg_send(mpi_process * p, tw_bf * bf,nodes_message * msg, tw_lp * lp)
 	       {
 	        m->dest_lp = getProcID( final_dst );
 	 	}
-
+           m->original_sender_lp = getProcID(lp->gid);
+           
  	     m->next_stop = -1; 
              tw_event_send( e );
      } 
@@ -771,7 +770,7 @@ void mpi_msg_send(mpi_process * p, tw_bf * bf,nodes_message * msg, tw_lp * lp)
 void mpi_msg_recv(mpi_process * p, tw_bf * bf,nodes_message * msg, tw_lp * lp)
 {
     int procId = getProcID(lp->gid);
-    //printf("\n Message received at: %d \n", procId);
+    
  // Message arrives at final destination
    bf->c3 = 0; 
    N_finished_msgs++;
@@ -784,13 +783,17 @@ void mpi_msg_recv(mpi_process * p, tw_bf * bf,nodes_message * msg, tw_lp * lp)
     int i,j;
     total_time += tw_now( lp ) - msg->travel_start_time;
     total_hops += msg->my_N_hop;
-
+    
     //printf("\n Hops: %d", N_num_hops);
     if (max_latency < tw_now( lp ) - msg->travel_start_time) {
 	  bf->c3 = 1;
 	  msg->saved_available_time = max_latency;
-          max_latency=tw_now( lp ) - msg->travel_start_time;
+      max_latency=tw_now( lp ) - msg->travel_start_time;
      }
+    
+    int senderId = getProcID(msg->sender_lp);
+    /*Receiving node, hops, Latency */
+    printf("%d, %d, %d\n", procId, msg-> my_N_hop, max_latency);
 }
 
 void mpi_event_handler( mpi_process * p, tw_bf * bf, nodes_message * msg, tw_lp * lp )
@@ -1104,7 +1107,7 @@ int main(int argc, char **argv, char **env)
         else
 	   printf("\n Incorrect traffic pattern specified, using %s as default ", traffic_str );
 
-	/* for automatically reducing the channel link bandwidth of a 7-D or a 9-D torus */
+    /* for automatically reducing the channel link bandwidth of a 7-D or a 9-D torus */
 	link_bandwidth = (link_bandwidth * 10) / (2 * N_dims);
 
     injection_limit = injection_interval / MEAN_INTERVAL;

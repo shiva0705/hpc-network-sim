@@ -3,6 +3,8 @@
 
 #include <ross.h>
 #include <assert.h>
+//#include <iostream>
+//#include <fstream>
 
 /* unit time of delay is nano second
  assume 374MB/s bandwidth for BG/P, it takes 64 ns to transfer 32Byte
@@ -22,15 +24,15 @@
 #define PACKET_SIZE 512
 #define NUM_VC 1
 
-#define TOTAL_NODES 16
+#define TOTAL_NODES 1024
 
 /*  static int       dim_length[] = {8,4,4,4,4,4,2}; // 7-D torus */
 
     //static int dim_length_sim[] = {4,4,4,4,2};//512 node case
     //static int dim_length[] = {4,4,4,4,2};
 
-    static int dim_length_sim[] = {1,1,1,4,4};//512 node case
-    static int dim_length[] = {1,1,1,4,4};
+    static int dim_length_sim[] = {4,4,4,4,4};//512 node case
+    static int dim_length[] = {4,4,4,4,4};
 
 
 
@@ -172,6 +174,9 @@ struct nodes_message
   /* for packets waiting to be injected into the network */
   int wait_loc;
   int wait_type;
+    
+    /*Add sender proc id to message*/
+    int original_sender_lp;
 };
 
 /* Linked list for storing waiting packets in the queue */
@@ -225,10 +230,12 @@ static int vc_size = 16384;
 static double link_bandwidth = 2.0;
 static char traffic_str[512] = "uniform";
 
-static int g_UNIQUE_SENDER=0;
-static int g_UNIQUE_RECEIVER=0;
+static int g_UNIQUE_SENDER=-1;
+static int g_UNIQUE_RECEIVER=-1;
 static int g_procIds_count=0;
 static int g_procIds[TOTAL_NODES];
+
+//static ofstream g_file;
 
 /* number of packets in a message and number of chunks/flits in a packet */
 int num_packets;
