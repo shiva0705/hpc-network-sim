@@ -173,8 +173,8 @@ struct nodes_message
   int wait_loc;
   int wait_type;
     
-    /*Add sender proc id to message*/
-    int original_sender_lp;
+  /*Add sender proc id to message*/
+  int original_sender_lp;
 };
 
 /* Linked list for storing waiting packets in the queue */

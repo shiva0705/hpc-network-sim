@@ -337,6 +337,7 @@ void packet_generate( nodes_state * s, tw_bf * bf, nodes_message * msg, tw_lp * 
        m->packet_ID = msg->packet_ID;
        m->chunk_id = j;
        m->sender_lp = -1;
+        m->original_sender_lp = msg->original_sender_lp;
 
        int dim_N[ N_dims ];
        dim_N[ 0 ] = m->dest_lp;
@@ -407,7 +408,7 @@ void credit_send( nodes_state * s, tw_bf * bf, tw_lp * lp, nodes_message * msg)
     m = tw_event_data(buf_e);
     m->source_direction = msg->source_direction;
     m->source_dim = msg->source_dim;
-
+    m->original_sender_lp = msg->original_sender_lp;
     m->type = CREDIT;
     tw_event_send( buf_e );
 }
@@ -489,6 +490,7 @@ void packet_send( nodes_state * s, tw_bf * bf, nodes_message * msg, tw_lp * lp )
 
 	 m->packet_ID = msg->packet_ID;
 	 m->sender_lp = msg->sender_lp;
+     m->original_sender_lp = msg->original_sender_lp;
 
 	 for (i=0; i < N_dims; i++)
            m->dest[i] = msg->dest[i];
@@ -518,6 +520,7 @@ void packet_send( nodes_state * s, tw_bf * bf, nodes_message * msg, tw_lp * lp )
       m->source_direction = tmp_dir;
       m->next_stop = dst_lp;
       m->sender_lp = lp->gid;
+      m->original_sender_lp = msg->original_sender_lp;
       m->chunk_id = msg->chunk_id;
    
       for( i = 0; i < N_dims; i++ )
@@ -591,6 +594,7 @@ void packet_arrive( nodes_state * s, tw_bf * bf, nodes_message * msg, tw_lp * lp
 	        m->travel_start_time = msg->travel_start_time;
 		m->my_N_hop = msg->my_N_hop;
 		m->packet_ID = msg->packet_ID;
+            m->original_sender_lp = msg->original_sender_lp;
 		tw_event_send(e);
         }
     }
@@ -616,6 +620,7 @@ void packet_arrive( nodes_state * s, tw_bf * bf, nodes_message * msg, tw_lp * lp
       m->my_N_hop = msg->my_N_hop;
       m->sender_lp = msg->sender_lp;
       m->chunk_id = msg->chunk_id;
+    m->original_sender_lp = msg->original_sender_lp;
 
       m->next_stop = -1;
       tw_event_send(e);
@@ -749,11 +754,12 @@ void mpi_msg_send(mpi_process * p, tw_bf * bf,nodes_message * msg, tw_lp * lp)
 	     m->travel_start_time = tw_now( lp ) + ts;
 
 	     if(TRAFFIC == NEAREST_NEIGHBOR || TRAFFIC == DIAGONAL)
-		m->dest_lp = final_dst;
+             m->dest_lp = final_dst;
 	     else
-	       {
+         {
 	        m->dest_lp = getProcID( final_dst );
-	 	}
+         }
+        
            m->original_sender_lp = getProcID(lp->gid);
            
  	     m->next_stop = -1; 
@@ -771,11 +777,11 @@ void mpi_msg_recv(mpi_process * p, tw_bf * bf,nodes_message * msg, tw_lp * lp)
 {
     int procId = getProcID(lp->gid);
     
- // Message arrives at final destination
+    // Message arrives at final destination
    bf->c3 = 0; 
    N_finished_msgs++;
     
-// For torus-dragonfly comparison only place the end time here
+    // For torus-dragonfly comparison only place the end time here
     N_finished_packets++;
     int index = floor(N_COLLECT_POINTS*(tw_now(lp)/g_tw_ts_end));
     N_finished_storage[index]++;
@@ -784,21 +790,18 @@ void mpi_msg_recv(mpi_process * p, tw_bf * bf,nodes_message * msg, tw_lp * lp)
     total_time += tw_now( lp ) - msg->travel_start_time;
     total_hops += msg->my_N_hop;
     
-    //printf("\n Hops: %d", N_num_hops);
     if (max_latency < tw_now( lp ) - msg->travel_start_time) {
 	  bf->c3 = 1;
 	  msg->saved_available_time = max_latency;
       max_latency=tw_now( lp ) - msg->travel_start_time;
-     }
+    }
     
-    int senderId = getProcID(msg->sender_lp);
-    /*Receiving node, hops, Latency */
-    //printf("%d, %d, %d\n", procId, msg-> my_N_hop, max_latency);
-    //tw_output(lp, "%d, %d, %d\n", procId, msg-> my_N_hop, max_latency);
-    // procStr = strcat(procId, ", ", msg-> my_N_hop, ", ", max_latency, "\n";
-    //fprintf(g_file, procId);
-   // fprintf(g_file, "\n");
+    /* ----WRITE RESULTS TO FILE ---*/
     
+    int original_sender_lp = TOTAL_NODES + getProcID(msg->original_sender_lp);
+    if(g_UNIQUE_SENDER == original_sender_lp){
+        fprintf(g_file, "%d, %d, %d, %d \n",original_sender_lp, procId, msg-> my_N_hop, tw_now( lp ) - msg->travel_start_time);
+    }
 }
 
 void mpi_event_handler( mpi_process * p, tw_bf * bf, nodes_message * msg, tw_lp * lp )
@@ -1171,6 +1174,8 @@ int main(int argc, char **argv, char **env)
 		printf("\nTorus Network Model Statistics:\n");
 		printf("Number of nodes: %d Torus dimensions: %d ", N_nodes, N_dims);
 		printf(" Link Bandwidth: %f Traffic pattern: %s \n", link_bandwidth, traffic_str );
+        
+        fprintf(g_file, "OrigSenderId, ReceiverId, Hops, MaxLatency \n");
     }
     
 	tw_run();
