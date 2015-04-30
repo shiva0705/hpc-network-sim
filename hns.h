@@ -3,8 +3,6 @@
 
 #include <ross.h>
 #include <assert.h>
-//#include <iostream>
-//#include <fstream>
 
 /* unit time of delay is nano second
  assume 374MB/s bandwidth for BG/P, it takes 64 ns to transfer 32Byte
@@ -24,15 +22,15 @@
 #define PACKET_SIZE 512
 #define NUM_VC 1
 
-#define TOTAL_NODES 1024
+#define TOTAL_NODES 64
 
 /*  static int       dim_length[] = {8,4,4,4,4,4,2}; // 7-D torus */
 
     //static int dim_length_sim[] = {4,4,4,4,2};//512 node case
     //static int dim_length[] = {4,4,4,4,2};
 
-    static int dim_length_sim[] = {4,4,4,4,4};//512 node case
-    static int dim_length[] = {4,4,4,4,4};
+    static int dim_length_sim[] = {1,1,4,4,4};//512 node case
+    static int dim_length[] = {1,1,4,4,4};
 
 
 
@@ -235,7 +233,7 @@ static int g_UNIQUE_RECEIVER=-1;
 static int g_procIds_count=0;
 static int g_procIds[TOTAL_NODES];
 
-//static ofstream g_file;
+static FILE *g_file;
 
 /* number of packets in a message and number of chunks/flits in a packet */
 int num_packets;

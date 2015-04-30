@@ -793,7 +793,12 @@ void mpi_msg_recv(mpi_process * p, tw_bf * bf,nodes_message * msg, tw_lp * lp)
     
     int senderId = getProcID(msg->sender_lp);
     /*Receiving node, hops, Latency */
-    printf("%d, %d, %d\n", procId, msg-> my_N_hop, max_latency);
+    //printf("%d, %d, %d\n", procId, msg-> my_N_hop, max_latency);
+    //tw_output(lp, "%d, %d, %d\n", procId, msg-> my_N_hop, max_latency);
+    // procStr = strcat(procId, ", ", msg-> my_N_hop, ", ", max_latency, "\n";
+    //fprintf(g_file, procId);
+   // fprintf(g_file, "\n");
+    
 }
 
 void mpi_event_handler( mpi_process * p, tw_bf * bf, nodes_message * msg, tw_lp * lp )
@@ -1107,6 +1112,9 @@ int main(int argc, char **argv, char **env)
         else
 	   printf("\n Incorrect traffic pattern specified, using %s as default ", traffic_str );
 
+    g_file = fopen("result.csv", "w");
+    //fprintf(g_file, "test \n");
+    
     /* for automatically reducing the channel link bandwidth of a 7-D or a 9-D torus */
 	link_bandwidth = (link_bandwidth * 10) / (2 * N_dims);
 
