@@ -3,6 +3,7 @@
 
 #include <ross.h>
 #include <assert.h>
+#include <time.h>
 
 /* unit time of delay is nano second
  assume 374MB/s bandwidth for BG/P, it takes 64 ns to transfer 32Byte
@@ -22,15 +23,15 @@
 #define PACKET_SIZE 512
 #define NUM_VC 1
 
-#define TOTAL_NODES 64
+#define TOTAL_NODES 1024
 
 /*  static int       dim_length[] = {8,4,4,4,4,4,2}; // 7-D torus */
 
     //static int dim_length_sim[] = {4,4,4,4,2};//512 node case
     //static int dim_length[] = {4,4,4,4,2};
 
-    static int dim_length_sim[] = {1,1,4,4,4};//512 node case
-    static int dim_length[] = {1,1,4,4,4};
+    static int dim_length_sim[] = {1,1,8,8,16};//512 node case
+    static int dim_length[] = {1,1,8,8,16};
 
 
 
@@ -178,6 +179,9 @@ struct nodes_message
     
   /*Add sender proc id to message*/
   int original_sender_lp;
+    
+    // Add start time in ms
+    unsigned long start_time;
 };
 
 /* Linked list for storing waiting packets in the queue */

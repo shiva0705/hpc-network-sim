@@ -338,7 +338,9 @@ void packet_generate( nodes_state * s, tw_bf * bf, nodes_message * msg, tw_lp * 
        m->chunk_id = j;
        m->sender_lp = -1;
         m->original_sender_lp = msg->original_sender_lp;
+        m->start_time = msg->start_time;
 
+        
        int dim_N[ N_dims ];
        dim_N[ 0 ] = m->dest_lp;
    
@@ -409,6 +411,7 @@ void credit_send( nodes_state * s, tw_bf * bf, tw_lp * lp, nodes_message * msg)
     m->source_direction = msg->source_direction;
     m->source_dim = msg->source_dim;
     m->original_sender_lp = msg->original_sender_lp;
+    m->start_time = msg->start_time;
     m->type = CREDIT;
     tw_event_send( buf_e );
 }
@@ -491,8 +494,9 @@ void packet_send( nodes_state * s, tw_bf * bf, nodes_message * msg, tw_lp * lp )
 	 m->packet_ID = msg->packet_ID;
 	 m->sender_lp = msg->sender_lp;
      m->original_sender_lp = msg->original_sender_lp;
-
-	 for (i=0; i < N_dims; i++)
+    m->start_time = msg->start_time;
+	
+        for (i=0; i < N_dims; i++)
            m->dest[i] = msg->dest[i];
 
 	 tw_event_send(e);
@@ -521,6 +525,7 @@ void packet_send( nodes_state * s, tw_bf * bf, nodes_message * msg, tw_lp * lp )
       m->next_stop = dst_lp;
       m->sender_lp = lp->gid;
       m->original_sender_lp = msg->original_sender_lp;
+      m->start_time = msg->start_time;
       m->chunk_id = msg->chunk_id;
    
       for( i = 0; i < N_dims; i++ )
@@ -595,6 +600,7 @@ void packet_arrive( nodes_state * s, tw_bf * bf, nodes_message * msg, tw_lp * lp
 		m->my_N_hop = msg->my_N_hop;
 		m->packet_ID = msg->packet_ID;
             m->original_sender_lp = msg->original_sender_lp;
+            m->start_time = msg->start_time;
 		tw_event_send(e);
         }
     }
@@ -621,6 +627,7 @@ void packet_arrive( nodes_state * s, tw_bf * bf, nodes_message * msg, tw_lp * lp
       m->sender_lp = msg->sender_lp;
       m->chunk_id = msg->chunk_id;
     m->original_sender_lp = msg->original_sender_lp;
+        m->start_time = msg->start_time;
 
       m->next_stop = -1;
       tw_event_send(e);
@@ -736,31 +743,25 @@ void mpi_msg_send(mpi_process * p, tw_bf * bf,nodes_message * msg, tw_lp * lp)
             if(g_procIds_count < N_nodes){
                 g_procIds[g_procIds_count] = procId;
                 g_procIds_count++;
+                printf("\n gproc count: %d", g_procIds_count);
             }
             
-            /*Select list of random unique senders once map complete*/
-            if(g_procIds_count == TOTAL_NODES && g_Is_Selection_Complete == 0){
-                int i;
-                
-                for(i =0; i < g_NUMBERS_OF_UNIQUE_SENDERS; i++){
-                    printf("\n Adding sender: %d", g_procIds[i]);
-                    g_UNIQUE_SENDERS_LIST[i] = g_procIds[i];
-                }
-                
-                g_Is_Selection_Complete = 1;
-                
-                for(i=0; i< g_NUMBERS_OF_UNIQUE_SENDERS; i++){
-                    printf("\n UNIQUE_SENDER_SELECTED: %d \n", g_UNIQUE_SENDERS_LIST[i]);
+            if(tw_ismaster()){
+                /*Select list of random unique senders once map complete*/
+                if(g_procIds_count == TOTAL_NODES && g_Is_Selection_Complete == 0){
+                    int i;
+                    for(i =0; i < g_NUMBERS_OF_UNIQUE_SENDERS-1; i++){
+                        printf("\n Adding sender: %d; i: %d", g_procIds[i], i);
+                        g_UNIQUE_SENDERS_LIST[i] = g_procIds[i];
+                    }
+                    g_Is_Selection_Complete = 1;
+                    printf("\nSelection complete\n");
+                    
                 }
             }
-            
             
             bf->c3 = 1;
-            if(procId == g_UNIQUE_SENDER){
-                final_dst = g_UNIQUE_RECEIVER;
-            }else{
-                final_dst = tw_rand_integer( lp->rng, N_nodes, 2 * N_nodes - 1);
-            }
+            final_dst = tw_rand_integer( lp->rng, N_nodes, 2 * N_nodes - 1);
             
             /* if the random final destination generated is the same as current LP ID then it is possible
              that the next randomly generated destination is also the same.
@@ -776,9 +777,9 @@ void mpi_msg_send(mpi_process * p, tw_bf * bf,nodes_message * msg, tw_lp * lp)
     }
     
     /*Uncomment this to: Only let UNIQUE SENDER to send message once it has been defined*/
-    if(TRAFFIC == POLAR && g_UNIQUE_SENDER != -1 && getProcID(lp-> gid) != g_UNIQUE_SENDER) {
-        return;
-    }
+    //if(TRAFFIC == POLAR && g_UNIQUE_SENDER != -1 && getProcID(lp-> gid) != g_UNIQUE_SENDER) {
+    //    return;
+   //   }
     
     /*For MULTI_POLAR: Only allow selected senders to send*/
     if(TRAFFIC == MULTI_POLAR && g_Is_Selection_Complete == 1){
@@ -826,6 +827,11 @@ void mpi_msg_send(mpi_process * p, tw_bf * bf,nodes_message * msg, tw_lp * lp)
         
            m->original_sender_lp = getProcID(lp->gid);
            
+           struct timeval tv;
+           gettimeofday(&tv,NULL);
+           m->start_time = tv.tv_usec;
+           
+           //m->start_time
  	     m->next_stop = -1; 
              tw_event_send( e );
      } 
@@ -872,16 +878,49 @@ void mpi_msg_recv(mpi_process * p, tw_bf * bf,nodes_message * msg, tw_lp * lp)
         
         tw_stime travel_time = max_latency;
         
-        printf("\n now: %d, start time: %d, end time: %d,  latency: %d",
-               tw_now( lp ),
-               msg->travel_start_time,
-               travel_end_time,
-               total_time);
+//        printf("\n now: %d, start time: %d, end time: %d,  latency: %d",
+//               tw_now( lp ),
+//               msg->travel_start_time,
+//               travel_end_time,
+//               total_time);
+
         
+        struct timeval tv;
+        gettimeofday(&tv,NULL);
+        unsigned long end_time = tv.tv_usec;
         
-        fprintf(g_file, "%d, %d, %d, %d \n",original_sender_lp, procId, msg-> my_N_hop, travel_time);
+        long travel_time_ms = end_time - msg->start_time;
+    
+        
+        //printf("\n start time %d; end time %d, travel time %d \n", msg->travel_start_time, end_time, travel_time_ms);
+        if(travel_time_ms > 0){
+            fprintf(g_file, "%d, %d, %d, %d \n",original_sender_lp, procId, msg-> my_N_hop, travel_time_ms);
+        }
     }
     
+    /*if(TRAFFIC == MULTI_POLAR && g_Is_Selection_Complete ==1){
+        
+        int Is_Sender = 0;
+        int i =0;
+        for(i =0; i < g_NUMBERS_OF_UNIQUE_SENDERS; i++){
+            if(g_UNIQUE_SENDERS_LIST[i] == getProcID(lp-> gid)){
+                Is_Sender = 1;
+                break;
+            }
+        }
+        
+        if(Is_Sender == 1){
+
+            struct timeval tv;
+            gettimeofday(&tv,NULL);
+            unsigned long end_time = tv.tv_usec;
+            
+            long travel_time_ms = end_time - msg->start_time;
+            
+            //printf("\n start time %d; end time %d, travel time %d \n", msg->travel_start_time, end_time, travel_time_ms);
+            fprintf(g_file, "%d, %d, %d, %d \n",original_sender_lp, procId, msg-> my_N_hop, travel_time_ms);
+        }
+    }*/
 }
 
 void mpi_event_handler( mpi_process * p, tw_bf * bf, nodes_message * msg, tw_lp * lp )
@@ -1269,9 +1308,10 @@ int main(int argc, char **argv, char **env)
 		printf(" Link Bandwidth: %f Traffic pattern: %s \n", link_bandwidth, traffic_str );
         
         fprintf(g_file, "OrigSenderId, ReceiverId, Hops, MaxLatency \n");
+        
     }
-    
-	tw_run();
+  	
+    tw_run();
 	unsigned long long total_finished_storage[N_COLLECT_POINTS];
 	unsigned long long total_generated_storage[N_COLLECT_POINTS];
 	unsigned long long total_num_hops[N_COLLECT_POINTS];
