@@ -82,7 +82,10 @@ enum traffic
   UNIFORM_RANDOM=1,
   NEAREST_NEIGHBOR,
   DIAGONAL,
-  POLAR
+    
+  /*Shiva Srivastava: Additional Traffic protocols added to analyze HPC network pattern*/
+  POLAR,
+  MULTI_POLAR
 };
 
 struct mpi_process
@@ -228,8 +231,14 @@ static int vc_size = 16384;
 static double link_bandwidth = 2.0;
 static char traffic_str[512] = "uniform";
 
+/*Added by Shiva Srivastava: paraps for POLAR and MULTI_POLAR Netowrk simulation*/
 static int g_UNIQUE_SENDER=-1;
 static int g_UNIQUE_RECEIVER=-1;
+
+static int g_UNIQUE_SENDERS_LIST[];
+static int g_NUMBERS_OF_UNIQUE_SENDERS;
+static int g_Is_Selection_Complete=0;
+
 static int g_procIds_count=0;
 static int g_procIds[TOTAL_NODES];
 

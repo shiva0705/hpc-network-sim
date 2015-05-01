@@ -702,12 +702,13 @@ void mpi_msg_send(mpi_process * p, tw_bf * bf,nodes_message * msg, tw_lp * lp)
             /*Select random unique sender and receiver once map complete*/
             if(g_procIds_count == TOTAL_NODES){
                 if(g_UNIQUE_SENDER ==-1){
-                    g_UNIQUE_SENDER = rand() % TOTAL_NODES;
-                    g_UNIQUE_RECEIVER = g_UNIQUE_SENDER;
+                    g_UNIQUE_SENDER = g_procIds[rand() % TOTAL_NODES];
+                    
+                   /* g_UNIQUE_RECEIVER = g_UNIQUE_SENDER;
                     while(g_UNIQUE_SENDER == g_UNIQUE_RECEIVER){
                         g_UNIQUE_RECEIVER = rand() % TOTAL_NODES;
                     }
-                    printf("\n UNIQUE_SENDER: %d; UNIQUE_RECEIVER: %d \n", g_UNIQUE_SENDER, g_UNIQUE_RECEIVER);
+                    printf("\n UNIQUE_SENDER: %d; UNIQUE_RECEIVER: %d \n", g_UNIQUE_SENDER, g_UNIQUE_RECEIVER);*/
                 }
             }
             
@@ -727,9 +728,54 @@ void mpi_msg_send(mpi_process * p, tw_bf * bf,nodes_message * msg, tw_lp * lp)
             }
         }
         break;
+        case MULTI_POLAR:
+        {
+            int procId = getProcID(lp -> gid);
             
+            /*Create global list of proc ids*/
+            if(g_procIds_count < N_nodes){
+                g_procIds[g_procIds_count] = procId;
+                g_procIds_count++;
+            }
+            
+            /*Select list of random unique senders once map complete*/
+            if(g_procIds_count == TOTAL_NODES && g_Is_Selection_Complete == 0){
+                int i;
+                
+                for(i =0; i < g_NUMBERS_OF_UNIQUE_SENDERS; i++){
+                    printf("\n Adding sender: %d", g_procIds[i]);
+                    g_UNIQUE_SENDERS_LIST[i] = g_procIds[i];
+                }
+                
+                g_Is_Selection_Complete = 1;
+                
+                for(i=0; i< g_NUMBERS_OF_UNIQUE_SENDERS; i++){
+                    printf("\n UNIQUE_SENDER_SELECTED: %d \n", g_UNIQUE_SENDERS_LIST[i]);
+                }
+            }
+            
+            
+            bf->c3 = 1;
+            if(procId == g_UNIQUE_SENDER){
+                final_dst = g_UNIQUE_RECEIVER;
+            }else{
+                final_dst = tw_rand_integer( lp->rng, N_nodes, 2 * N_nodes - 1);
+            }
+            
+            /* if the random final destination generated is the same as current LP ID then it is possible
+             that the next randomly generated destination is also the same.
+             Therefore if randomly generated destination is the same as source, we use the following
+             calculation to make sure that the source and destinations are different */
+            if( final_dst == lp->gid){
+                final_dst = N_nodes + (lp->gid + N_nodes/2) % N_nodes;
+            }
+        }
+            break;
+
+
     }
     
+    /*Uncomment this to: Only let UNIQUE SENDER to send message once it has been defined*/
     if(TRAFFIC == POLAR && g_UNIQUE_SENDER != -1 && getProcID(lp-> gid) != g_UNIQUE_SENDER) {
         return;
     }
@@ -1110,12 +1156,25 @@ int main(int argc, char **argv, char **env)
 	    TRAFFIC = NEAREST_NEIGHBOR;
 	else if(strcmp(traffic_str, "diagonal") == 0)
 	    TRAFFIC = DIAGONAL;
-    else if(strcmp(traffic_str, "polar") == 0)
+    else if(strcmp(traffic_str, "polar") == 0){
         TRAFFIC = POLAR;
-        else
+        //open file to write results for POLAR
+        g_file = fopen("polar_result.csv", "w");
+    }
+    else if(strcmp(traffic_str, "multi_polar") == 0){
+        TRAFFIC = MULTI_POLAR;
+        
+        g_NUMBERS_OF_UNIQUE_SENDERS = atoi(argv[1]);
+        printf("Unique senders required: %d \n", g_NUMBERS_OF_UNIQUE_SENDERS);
+        
+        g_UNIQUE_SENDERS_LIST[g_NUMBERS_OF_UNIQUE_SENDERS];
+        
+        //open file to write multi polar results
+        g_file = fopen("multi_polar_result.csv", "w");
+    }
+    else
 	   printf("\n Incorrect traffic pattern specified, using %s as default ", traffic_str );
 
-    g_file = fopen("result.csv", "w");
     //fprintf(g_file, "test \n");
     
     /* for automatically reducing the channel link bandwidth of a 7-D or a 9-D torus */
