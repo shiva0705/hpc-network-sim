@@ -704,11 +704,11 @@ void mpi_msg_send(mpi_process * p, tw_bf * bf,nodes_message * msg, tw_lp * lp)
                 if(g_UNIQUE_SENDER ==-1){
                     g_UNIQUE_SENDER = g_procIds[rand() % TOTAL_NODES];
                     
-                   /* g_UNIQUE_RECEIVER = g_UNIQUE_SENDER;
+                    g_UNIQUE_RECEIVER = g_UNIQUE_SENDER;
                     while(g_UNIQUE_SENDER == g_UNIQUE_RECEIVER){
                         g_UNIQUE_RECEIVER = rand() % TOTAL_NODES;
                     }
-                    printf("\n UNIQUE_SENDER: %d; UNIQUE_RECEIVER: %d \n", g_UNIQUE_SENDER, g_UNIQUE_RECEIVER);*/
+                    printf("\n UNIQUE_SENDER: %d; UNIQUE_RECEIVER: %d \n", g_UNIQUE_SENDER, g_UNIQUE_RECEIVER);
                 }
             }
             
@@ -770,7 +770,7 @@ void mpi_msg_send(mpi_process * p, tw_bf * bf,nodes_message * msg, tw_lp * lp)
                 final_dst = N_nodes + (lp->gid + N_nodes/2) % N_nodes;
             }
         }
-            break;
+        break;
 
 
     }
@@ -780,6 +780,24 @@ void mpi_msg_send(mpi_process * p, tw_bf * bf,nodes_message * msg, tw_lp * lp)
         return;
     }
     
+    /*For MULTI_POLAR: Only allow selected senders to send*/
+    if(TRAFFIC == MULTI_POLAR && g_Is_Selection_Complete == 1){
+        int Is_Sender = 0;
+        int i =0;
+        for(i =0; i < g_NUMBERS_OF_UNIQUE_SENDERS; i++){
+            if(g_UNIQUE_SENDERS_LIST[i] == getProcID(lp-> gid)){
+                Is_Sender = 1;
+                break;
+            }
+        }
+        
+        if(Is_Sender == 0){
+            return;
+        }
+        
+    }
+    
+    /*Send MPI message*/
     tw_stime base_time = MEAN_PROCESS;
 	
       for( i=0; i < num_packets; i++ ) 
@@ -845,9 +863,25 @@ void mpi_msg_recv(mpi_process * p, tw_bf * bf,nodes_message * msg, tw_lp * lp)
     /* ----WRITE RESULTS TO FILE ---*/
     
     int original_sender_lp = TOTAL_NODES + getProcID(msg->original_sender_lp);
-    if(g_UNIQUE_SENDER == original_sender_lp){
-        fprintf(g_file, "%d, %d, %d, %d \n",original_sender_lp, procId, msg-> my_N_hop, tw_now( lp ) - msg->travel_start_time);
+    
+    if(TRAFFIC == POLAR && g_UNIQUE_SENDER == original_sender_lp){
+        
+        // calculate message travel end time
+        tw_stime ts = 0.1 + tw_rand_exponential(lp->rng, MEAN_INTERVAL/200);
+        tw_stime travel_end_time = tw_now( lp ) + ts;
+        
+        tw_stime travel_time = max_latency;
+        
+        printf("\n now: %d, start time: %d, end time: %d,  latency: %d",
+               tw_now( lp ),
+               msg->travel_start_time,
+               travel_end_time,
+               total_time);
+        
+        
+        fprintf(g_file, "%d, %d, %d, %d \n",original_sender_lp, procId, msg-> my_N_hop, travel_time);
     }
+    
 }
 
 void mpi_event_handler( mpi_process * p, tw_bf * bf, nodes_message * msg, tw_lp * lp )
